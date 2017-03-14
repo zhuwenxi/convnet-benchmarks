@@ -45,6 +45,12 @@ if args.gpu >= 0:
 optimizer = optimizers.SGD(lr=0.01)
 optimizer.setup(model)
 
+workspace_size = int(1 * 2**30)
+import chainer
+
+chainer.cuda.set_max_workspace_size(workspace_size)
+
+chainer.config.train = True
 
 def train_loop():
     # Trainer
@@ -52,55 +58,80 @@ def train_loop():
     data.fill(33333)
     total_forward = 0
     total_backward = 0
-    niter = 10
+    niter = 13
+    n_dry = 3
 
     label = np.ndarray((args.batchsize), dtype=np.int32)
     label.fill(1)
+    count = 0
     for i in range(niter):
         # print "Iteration", i
 
         x = xp.asarray(data)
         y = xp.asarray(label)
+        
+        if args.arch == 'googlenet':
+            #time.sleep(0.5)
+            optimizer.zero_grads()
+            start = xp.cuda.Event()
+            end = xp.cuda.Event()
+            start.record()
+            out1, out2, out3 = model.forward(x)
+            end.record()
+            end.synchronize()
+            time_ = xp.cuda.get_elapsed_time(start, end)
+            if i > n_dry - 1:
+                count += 1
+                total_forward += time_
+            # print "Forward step time elapsed:", time_, " ms"
+            out = out1 + out2 + out3
+        else:
+            #time.sleep(0.5)
+            optimizer.zero_grads()
+            start = xp.cuda.Event()
+            end = xp.cuda.Event()
+            start.record()
+            out = model.forward(x)
+            end.record()
+            end.synchronize()
+            time_ = xp.cuda.get_elapsed_time(start, end)
+            if i > n_dry - 1:
+                count += 1
+                total_forward += time_
+            # print "Forward step time elapsed:", time_, " ms"
 
-        optimizer.zero_grads()
+        out.zerograd()
+        out.grad.fill(3)
+        model.cleargrads()
+        xp.cuda.Stream(null=True)
+        #time.sleep(0.5)
         start = xp.cuda.Event()
         end = xp.cuda.Event()
         start.record()
-        loss, accuracy = model.forward(x, y)
+        out.backward()
         end.record()
         end.synchronize()
         time_ = xp.cuda.get_elapsed_time(start, end)
-        if i > 0:
-            total_forward += time_
-        # print "Forward step time elapsed:", time_, " ms"
-
-
-        start = xp.cuda.Event()
-        end = xp.cuda.Event()
-        start.record()
-        loss.backward()
-        end.record()
-        end.synchronize()
-        time_ = xp.cuda.get_elapsed_time(start, end)
-        if i > 0:
+        if i > n_dry - 1:
             total_backward += time_
         # print "Backward step time elapsed:", time_, " ms"
 
-        start = xp.cuda.Event()
-        end = xp.cuda.Event()
-        start.record()
-        optimizer.update()
-        end.record()
-        end.synchronize()
-        time_ = xp.cuda.get_elapsed_time(start, end)
-        if i > 0:
-            total_backward += time_
-        # print "Optimizer update time elapsed:", time_, " ms"
+        ##time.sleep(0.5)
+        #start = xp.cuda.Event()
+        #end = xp.cuda.Event()
+        #start.record()
+        #optimizer.update()
+        #end.record()
+        #end.synchronize()
+        #time_ = xp.cuda.get_elapsed_time(start, end)
+        #if i > n_dry - 1:
+        #    total_backward += time_
+        ## print "Optimizer update time elapsed:", time_, " ms"
 
-        del loss, accuracy
-    print "Average Forward:  ", total_forward  / (niter-1), " ms"
-    print "Average Backward: ", total_backward / (niter-1), " ms"
-    print "Average Total:    ", (total_forward + total_backward) / (niter-1), " ms"
-    print ""
+        del out
+    print("Average Forward:  ", total_forward  / count, " ms")
+    print("Average Backward: ", total_backward / count, " ms")
+    print("Average Total:    ", (total_forward + total_backward) / count, " ms")
+    print("")
 
 train_loop()
