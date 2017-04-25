@@ -65,14 +65,10 @@ def train_loop():
     label.fill(1)
     count = 0
     for i in range(niter):
-        # print "Iteration", i
-
         x = xp.asarray(data)
         y = xp.asarray(label)
         
         if args.arch == 'googlenet':
-            #time.sleep(0.5)
-            optimizer.zero_grads()
             start = xp.cuda.Event()
             end = xp.cuda.Event()
             start.record()
@@ -83,11 +79,8 @@ def train_loop():
             if i > n_dry - 1:
                 count += 1
                 total_forward += time_
-            # print "Forward step time elapsed:", time_, " ms"
             out = out1 + out2 + out3
         else:
-            #time.sleep(0.5)
-            optimizer.zero_grads()
             start = xp.cuda.Event()
             end = xp.cuda.Event()
             start.record()
@@ -98,13 +91,11 @@ def train_loop():
             if i > n_dry - 1:
                 count += 1
                 total_forward += time_
-            # print "Forward step time elapsed:", time_, " ms"
 
         out.zerograd()
         out.grad.fill(3)
         model.cleargrads()
         xp.cuda.Stream(null=True)
-        #time.sleep(0.5)
         start = xp.cuda.Event()
         end = xp.cuda.Event()
         start.record()
@@ -114,19 +105,6 @@ def train_loop():
         time_ = xp.cuda.get_elapsed_time(start, end)
         if i > n_dry - 1:
             total_backward += time_
-        # print "Backward step time elapsed:", time_, " ms"
-
-        ##time.sleep(0.5)
-        #start = xp.cuda.Event()
-        #end = xp.cuda.Event()
-        #start.record()
-        #optimizer.update()
-        #end.record()
-        #end.synchronize()
-        #time_ = xp.cuda.get_elapsed_time(start, end)
-        #if i > n_dry - 1:
-        #    total_backward += time_
-        ## print "Optimizer update time elapsed:", time_, " ms"
 
         del out
     print("Average Forward:  ", total_forward  / count, " ms")
