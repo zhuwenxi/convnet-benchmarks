@@ -34,6 +34,12 @@ elif args.arch == 'vgga':
 elif args.arch == 'overfeat':
     import overfeat
     model = overfeat.overfeat()
+elif args.arch == 'vgg16':
+    import vgg16
+    model = vgg16.VGG16()
+elif args.arch == 'vgg19':
+    import vgg19
+    model = vgg19.VGG19()
 else:
     raise ValueError('Invalid architecture name')
 
@@ -52,6 +58,27 @@ chainer.cuda.set_max_workspace_size(workspace_size)
 
 chainer.config.train = True
 
+class Timer():
+    def preprocess(self):
+        if xp == np:
+            self.start = time.time()
+        else:
+            self.start = xp.cuda.Event()
+            self.end = xp.cuda.Event()
+            self.start.record()
+    def postprocess(self):
+        if xp == np:
+            self.end = time.time()
+        else:
+            self.end.record()
+            self.end.synchronize()
+    def getElapseTime(self):
+        if xp == np:
+            return (self.end - self.start)*1000
+        else:
+            return xp.cuda.get_elapsed_time(self.start, self.end)
+
+
 def train_loop():
     # Trainer
     data = np.ndarray((args.batchsize, 3, model.insize, model.insize), dtype=np.float32)
@@ -64,30 +91,25 @@ def train_loop():
     label = np.ndarray((args.batchsize), dtype=np.int32)
     label.fill(1)
     count = 0
+    timer = Timer()
     for i in range(niter):
         x = xp.asarray(data)
         y = xp.asarray(label)
         
         if args.arch == 'googlenet':
-            start = xp.cuda.Event()
-            end = xp.cuda.Event()
-            start.record()
+            timer.preprocess()
             out1, out2, out3 = model.forward(x)
-            end.record()
-            end.synchronize()
-            time_ = xp.cuda.get_elapsed_time(start, end)
+            timer.postprocess()
+            time_ = timer.getElapseTime()
             if i > n_dry - 1:
                 count += 1
                 total_forward += time_
             out = out1 + out2 + out3
         else:
-            start = xp.cuda.Event()
-            end = xp.cuda.Event()
-            start.record()
+            timer.preprocess()
             out = model.forward(x)
-            end.record()
-            end.synchronize()
-            time_ = xp.cuda.get_elapsed_time(start, end)
+            timer.postprocess()
+            time_ = time_ = timer.getElapseTime()
             if i > n_dry - 1:
                 count += 1
                 total_forward += time_
@@ -95,14 +117,12 @@ def train_loop():
         out.zerograd()
         out.grad.fill(3)
         model.cleargrads()
-        xp.cuda.Stream(null=True)
-        start = xp.cuda.Event()
-        end = xp.cuda.Event()
-        start.record()
+        if xp != np:
+            xp.cuda.Stream(null=True)
+        timer.preprocess()
         out.backward()
-        end.record()
-        end.synchronize()
-        time_ = xp.cuda.get_elapsed_time(start, end)
+        timer.postprocess()
+        time_ = timer.getElapseTime()
         if i > n_dry - 1:
             total_backward += time_
 
