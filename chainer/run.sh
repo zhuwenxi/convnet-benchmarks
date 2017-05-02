@@ -2,3 +2,5 @@
 ./train_imagenet.py --arch googlenet --batchsize 128     | tee out_googlenet.log
 ./train_imagenet.py --arch vgga      --batchsize 64      | tee out_vgga.log
 ./train_imagenet.py --arch overfeat  --batchsize 128     | tee out_overfeat.log
+./train_imagenet.py --arch vgg16  --batchsize 64        | tee out_vgg16.log
+./train_imagenet.py --arch vgg19  --batchsize 64	| tee out_vgg19.log
