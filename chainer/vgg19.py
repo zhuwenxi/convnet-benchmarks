@@ -26,17 +26,17 @@ class VGG19(chainer.Chain):
             conv3_1=L.Convolution2D(128, 256, 3, stride=1, pad=1),
             conv3_2=L.Convolution2D(256, 256, 3, stride=1, pad=1),
             conv3_3=L.Convolution2D(256, 256, 3, stride=1, pad=1),
-	    conv3_4=L.Convolution2D(256, 256, 3, stride=1, pad=1),
+            conv3_4=L.Convolution2D(256, 256, 3, stride=1, pad=1),
 
             conv4_1=L.Convolution2D(256, 512, 3, stride=1, pad=1),
             conv4_2=L.Convolution2D(512, 512, 3, stride=1, pad=1),
             conv4_3=L.Convolution2D(512, 512, 3, stride=1, pad=1),
-	    conv4_4=L.Convolution2D(512, 512, 3, stride=1, pad=1),
+            conv4_4=L.Convolution2D(512, 512, 3, stride=1, pad=1),
 
             conv5_1=L.Convolution2D(512, 512, 3, stride=1, pad=1),
             conv5_2=L.Convolution2D(512, 512, 3, stride=1, pad=1),
             conv5_3=L.Convolution2D(512, 512, 3, stride=1, pad=1),
-	    conv5_4=L.Convolution2D(512, 512, 3, stride=1, pad=1),	   
+            conv5_4=L.Convolution2D(512, 512, 3, stride=1, pad=1),
 
             fc6=L.Linear(25088, 4096),
             fc7=L.Linear(4096, 4096),
@@ -55,19 +55,19 @@ class VGG19(chainer.Chain):
         h = F.relu(self.conv3_1(h))
         h = F.relu(self.conv3_2(h))
         h = F.relu(self.conv3_3(h))
-	h = F.relu(self.conv3_4(h))
+        h = F.relu(self.conv3_4(h))
         h = F.max_pooling_2d(h, 2, stride=2)
 
         h = F.relu(self.conv4_1(h))
         h = F.relu(self.conv4_2(h))
         h = F.relu(self.conv4_3(h))
-	h = F.relu(self.conv4_4(h))
+        h = F.relu(self.conv4_4(h))
         h = F.max_pooling_2d(h, 2, stride=2)
 
         h = F.relu(self.conv5_1(h))
         h = F.relu(self.conv5_2(h))
         h = F.relu(self.conv5_3(h))
-	h = F.relu(self.conv5_4(h))
+        h = F.relu(self.conv5_4(h))
         h = F.max_pooling_2d(h, 2, stride=2)
 
         h = F.dropout(F.relu(self.fc6(h)),  ratio=0.5)
