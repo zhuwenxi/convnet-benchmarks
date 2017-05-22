@@ -7,6 +7,9 @@ import numpy as np
 from chainer import cuda
 from chainer import optimizers
 
+from util import TimerHook
+from util import ModelWrapper
+
 parser = argparse.ArgumentParser(
     description=' convnet benchmarks on imagenet')
 parser.add_argument('--arch', '-a', default='alexnet',
@@ -20,11 +23,14 @@ parser.add_argument('--gpu', '-g', default=0, type=int,
 args = parser.parse_args()
 xp = cuda.cupy if args.gpu >= 0 else np
 
+timer_hook = TimerHook()
+
 # Prepare model
 print(args.arch)
 if args.arch == 'alexnet':
     import alex
     model = alex.Alex()
+    model = ModelWrapper(model, timer_hook)
 elif args.arch == 'googlenet':
     import googlenet
     model = googlenet.GoogLeNet()
@@ -98,7 +104,8 @@ def train_loop():
         
         if args.arch == 'googlenet':
             timer.preprocess()
-            out1, out2, out3 = model.forward(x)
+            with timer_hook:
+                out1, out2, out3 = model.forward(x)
             timer.postprocess()
             time_ = timer.getElapseTime()
             if i > n_dry - 1:
@@ -107,7 +114,8 @@ def train_loop():
             out = out1 + out2 + out3
         else:
             timer.preprocess()
-            out = model.forward(x)
+            with timer_hook:
+                out = model.forward(x)
             timer.postprocess()
             time_ = time_ = timer.getElapseTime()
             if i > n_dry - 1:
@@ -133,3 +141,5 @@ def train_loop():
     print("")
 
 train_loop()
+
+timer_hook.print_layer_time()
