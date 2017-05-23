@@ -56,6 +56,8 @@ class TimerHook(function.FunctionHook):
 			# Note that `get_elapsed_time` returns result in milliseconds
 			elapsed_time = cuda.cupy.cuda.get_elapsed_time(
 				self.start, self.stop) / 1000
+		if self.layer_name is None:
+			return
 		self.call_history.append((self.layer_name, elapsed_time))
 
 	def forward_postprocess(self, function, in_data):
@@ -84,41 +86,14 @@ class TimerHook(function.FunctionHook):
 				layer_time_dict[func_name]['number'] += 1
 
 		print '================================================'
-		for name, record in layer_time_dict.items():
+		keys = layer_time_dict.keys()
+		keys.sort()
+		for name in keys:
+			record = layer_time_dict[name]
 			print '[{}]:'.format(name)
 			print 'total time: {} ms'.format(record['time'] * 1000)
 			print 'average time: {} ms\n'.format(float(record['time']) * 1000/ record['number'])
 		print '================================================'
-
-
-# A sub-class of CaffeFunction which enables layer-by-layer time hooks 
-class CaffeFunctionImpl(CaffeFunction):
-	def __init__(self, model_path, timer_hook):
-		super(CaffeFunctionImpl, self).__init__(model_path)
-		self.timer_hook = timer_hook
-	def __call__(self, inputs, outputs, disable=(), train=True):
-		self.train = train
-		variables = dict(inputs)
-		for func_name, bottom, top in self.layers:
-			if (func_name in disable or
-				func_name not in self.forwards or
-					any(blob not in variables for blob in bottom)):
-				continue
-			with self.timer_hook:
-				func = self.forwards[func_name]
-				input_vars = tuple(variables[blob] for blob in bottom)
-				output_vars = func(*input_vars)
-				
-			self.timer_hook.call_history[-1] = (func_name, self.timer_hook.call_history[-1][1])
-			if not isinstance(output_vars, collections.Iterable):
-				output_vars = output_vars,
-			for var, name in zip(output_vars, top):
-				variables[name] = var
-
-		self.variables = variables
-		return tuple(variables[blob] for blob in outputs)
-
-CaffeFunction = CaffeFunctionImpl
 
 origin_call = {}
 def ModelWrapper(model, timer_hook):
@@ -134,7 +109,10 @@ def ModelWrapper(model, timer_hook):
 				if isinstance(self[attr], link.Link) or isinstance(self[attr], function.Function):
 					def wrapper_function(this, x):
 						timer_hook.layer_name = this._layer_name
-						return origin_call[this.__class__](this, x)
+						with timer_hook:
+							ret = origin_call[this.__class__](this, x)
+						timer_hook.layer_name = None
+						return ret
 
 					self[attr]._layer_name = attr
 					if self[attr].__class__ not in origin_call:
